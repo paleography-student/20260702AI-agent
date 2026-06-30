@@ -1,0 +1,15 @@
+interface:
+  display_name: "PDF 拆分导入 Zotero"
+  short_description: "将论文集或集刊拆成单篇 PDF 并录入 Zotero"
+  default_prompt: "Use $pdf-zotero-split-import to split these proceedings PDFs into individual papers and import them into Zotero."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "zotero-mcp"
+      description: "Local Zotero MCP server used to create items, import PDF attachments, read collections, and verify imported records."
+      transport: "streamable_http"
+      url: "http://localhost:23121/mcp/"
+
+policy:
+  allow_implicit_invocation: true
