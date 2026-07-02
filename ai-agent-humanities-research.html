@@ -1,0 +1,1467 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI智能体实战：文科生如何用AI辅助研究</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;700&family=Noto+Serif+SC:wght@500;700;900&family=Source+Serif+4:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ===========================================
+       CSS CUSTOM PROPERTIES: PAPER AND INK THEME
+       修改这里可以统一调整整套课件的纸张、字体和强调色。
+       =========================================== */
+    :root {
+      --stage-bg: #141312;
+      --slide-bg: #f7f1e5;
+      --paper: #f7f1e5;
+      --paper-soft: #fbf7ee;
+      --ink: #161310;
+      --ink-muted: #5a5045;
+      --ink-faint: #8a7c6d;
+      --accent: #8d2b2f;
+      --accent-soft: #d9b59c;
+      --line: rgba(22, 19, 16, .16);
+      --font-display: "Noto Serif SC", "Cormorant Garamond", serif;
+      --font-body: "Source Serif 4", "Noto Serif SC", serif;
+      --ease-out-expo: cubic-bezier(.16, 1, .3, 1);
+      --duration-normal: .65s;
+    }
+
+    /* ===========================================
+       BASE RESET
+       让所有元素按固定舞台尺寸排版，避免默认间距造成溢出。
+       =========================================== */
+    * {
+      box-sizing: border-box;
+    }
+
+    h1, h2, h3, p {
+      margin: 0;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    /* ===========================================
+       FIXED 16:9 STAGE: MANDATORY BASE STYLES
+       Include this ENTIRE file in every presentation.
+       Slides are authored at 1920×1080 and scaled as a whole.
+       =========================================== */
+
+    /* 1. Lock the browser viewport */
+    html,
+    body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: var(--stage-bg, #000);
+    }
+
+    /* 2. Full-window deck viewport */
+    .deck-viewport {
+        position: fixed;
+        inset: 0;
+        overflow: hidden;
+        background: var(--stage-bg, #000);
+    }
+
+    /* 3. Fixed 16:9 design canvas.
+       JavaScript sets transform: translate(...) scale(...). */
+    .deck-stage {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        transform-origin: 0 0;
+        background: var(--slide-bg, #fff);
+    }
+
+    /* 4. Slides stack inside the fixed stage.
+       Content must be laid out at 1920×1080, not reflowed per device. */
+    .slide {
+        position: absolute;
+        inset: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        display: block;
+        visibility: hidden;
+        opacity: 0;
+        pointer-events: none;
+        background: var(--slide-bg, #fff);
+    }
+
+    .slide.active,
+    .slide.visible {
+        visibility: visible;
+        opacity: 1;
+        pointer-events: auto;
+        z-index: 1;
+    }
+
+    /* 5. Keep media inside authored slide bounds */
+    img,
+    video,
+    canvas,
+    svg {
+        max-width: 100%;
+        max-height: 100%;
+    }
+
+    /* 6. Presentation chrome stays outside the slide design system */
+    .deck-controls {
+        position: fixed;
+        left: 50%;
+        bottom: 22px;
+        transform: translateX(-50%);
+        z-index: 1000;
+    }
+
+    /* 7. Print one fixed-size slide per page */
+    @media print {
+        html,
+        body {
+            width: 1920px;
+            height: auto;
+            overflow: visible;
+            background: #fff;
+        }
+
+        .deck-viewport {
+            position: static;
+            overflow: visible;
+            background: #fff;
+        }
+
+        .deck-stage {
+            position: static;
+            width: auto;
+            height: auto;
+            transform: none !important;
+            background: none;
+        }
+
+        .slide {
+            position: relative;
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            pointer-events: auto !important;
+            width: 1920px;
+            height: 1080px;
+            break-after: page;
+            page-break-after: always;
+        }
+
+        .slide:last-child {
+            break-after: auto;
+            page-break-after: auto;
+        }
+
+        .deck-controls {
+            display: none !important;
+        }
+    }
+
+    /* 8. Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+            animation-duration: 0.01ms !important;
+            transition-duration: 0.2s !important;
+        }
+    }
+
+    /* ===========================================
+       PAPER SURFACE AND COMMON SLIDE CHROME
+       每页都像同一本讲义里的固定版面，标题和页码位置保持稳定。
+       =========================================== */
+    body {
+      font-family: var(--font-body);
+      color: var(--ink);
+    }
+
+    .slide {
+      background:
+        linear-gradient(90deg, rgba(22, 19, 16, .045) 0 1px, transparent 1px),
+        repeating-linear-gradient(0deg, rgba(22, 19, 16, .018) 0 1px, transparent 1px 6px),
+        var(--paper);
+      background-size: 44px 44px, auto, auto;
+    }
+
+    .slide::before {
+      content: "";
+      position: absolute;
+      inset: 56px;
+      border: 2px solid var(--line);
+      pointer-events: none;
+    }
+
+    .slide::after {
+      content: "";
+      position: absolute;
+      left: 110px;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: rgba(141, 43, 47, .16);
+      pointer-events: none;
+    }
+
+    .page-no {
+      position: absolute;
+      top: 96px;
+      right: 116px;
+      font-size: 26px;
+      letter-spacing: .08em;
+      color: var(--accent);
+      z-index: 2;
+    }
+
+    .section-mark {
+      position: absolute;
+      left: 140px;
+      top: 96px;
+      font-size: 25px;
+      letter-spacing: .14em;
+      color: var(--accent);
+      z-index: 2;
+    }
+
+    .section-mark::after {
+      content: "";
+      display: block;
+      width: 260px;
+      height: 4px;
+      margin-top: 18px;
+      background: var(--accent);
+      transform-origin: left center;
+      transform: scaleX(0);
+      transition: transform .7s var(--ease-out-expo);
+    }
+
+    .visible .section-mark::after {
+      transform: scaleX(1);
+    }
+
+    .slide-inner {
+      position: absolute;
+      left: 190px;
+      right: 150px;
+      top: 170px;
+      bottom: 105px;
+      z-index: 1;
+    }
+
+    .title-slide .slide-inner {
+      top: 250px;
+      left: 190px;
+      right: 230px;
+      bottom: 190px;
+    }
+
+    /* ===========================================
+       TYPOGRAPHY
+       低密度演讲型页面：大标题、短句、少量要点。
+       =========================================== */
+    .kicker {
+      font-size: 34px;
+      letter-spacing: .18em;
+      color: #6d5943;
+      margin-bottom: 42px;
+    }
+
+    h1 {
+      font-family: var(--font-display);
+      font-size: 124px;
+      line-height: 1.08;
+      font-weight: 900;
+      letter-spacing: 0;
+      max-width: 1320px;
+    }
+
+    h2 {
+      font-family: var(--font-display);
+      font-size: 82px;
+      line-height: 1.15;
+      font-weight: 900;
+      letter-spacing: 0;
+      max-width: 1320px;
+    }
+
+    h3 {
+      font-family: var(--font-display);
+      font-size: 38px;
+      line-height: 1.25;
+      font-weight: 800;
+    }
+
+    .lead {
+      margin-top: 34px;
+      font-size: 39px;
+      line-height: 1.46;
+      color: var(--ink-muted);
+      max-width: 1130px;
+    }
+
+    .subtitle {
+      margin-top: 54px;
+      font-size: 40px;
+      line-height: 1.45;
+      color: #4b4138;
+      max-width: 1050px;
+    }
+
+    .caption {
+      font-size: 26px;
+      line-height: 1.45;
+      color: var(--ink-faint);
+    }
+
+    strong {
+      color: var(--accent);
+      font-weight: 800;
+    }
+
+    /* ===========================================
+       LAYOUT COMPONENTS
+       多种版式共享同一纸本风格，用于时间轴、表格、流程图和案例页。
+       =========================================== */
+    .cols {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 44px;
+      margin-top: 52px;
+      max-width: 1400px;
+    }
+
+    .cols.three {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .cols.row4 {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 18px;
+      margin-top: 30px;
+      max-width: 1450px;
+    }
+
+    .card {
+      border: 2px solid var(--line);
+      background: rgba(255, 255, 255, .28);
+      padding: 34px 38px;
+      min-height: 170px;
+    }
+
+    .card p {
+      margin-top: 16px;
+      font-size: 29px;
+      line-height: 1.45;
+      color: var(--ink-muted);
+    }
+
+    .cols.row4 .card {
+      min-height: 170px;
+      padding: 26px 26px;
+    }
+
+    .cols.row4 .card h3 {
+      font-size: 32px;
+    }
+
+    .cols.row4 .card p {
+      font-size: 24px;
+      line-height: 1.32;
+    }
+
+    .big-quote {
+      margin-top: 70px;
+      max-width: 1220px;
+      font-family: var(--font-display);
+      font-size: 68px;
+      line-height: 1.22;
+      color: var(--ink);
+    }
+
+    .bullets {
+      display: grid;
+      gap: 24px;
+      margin-top: 52px;
+      max-width: 1180px;
+      padding: 0;
+      list-style: none;
+    }
+
+    .bullets li {
+      position: relative;
+      padding-left: 46px;
+      font-size: 36px;
+      line-height: 1.38;
+      color: var(--ink-muted);
+    }
+
+    .bullets li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 22px;
+      width: 18px;
+      height: 18px;
+      border: 4px solid var(--accent);
+      border-radius: 50%;
+    }
+
+    .small-list li {
+      font-size: 30px;
+    }
+
+    .timeline {
+      margin-top: 58px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 22px;
+      max-width: 1440px;
+    }
+
+    .time-item {
+      min-height: 230px;
+      border-top: 8px solid var(--accent);
+      padding: 26px 26px 20px;
+      background: rgba(255, 255, 255, .24);
+      border-left: 2px solid var(--line);
+    }
+
+    .time-item .year {
+      font-size: 35px;
+      color: var(--accent);
+      font-weight: 800;
+    }
+
+    .time-item p {
+      margin-top: 18px;
+      font-size: 28px;
+      line-height: 1.38;
+      color: var(--ink-muted);
+    }
+
+    .timeline:has(.time-item:nth-child(5)) {
+      margin-top: 44px;
+    }
+
+    .timeline:has(.time-item:nth-child(5)) .time-item {
+      min-height: 205px;
+      padding: 22px 22px 18px;
+    }
+
+    .timeline:has(.time-item:nth-child(5)) .time-item .year {
+      font-size: 31px;
+    }
+
+    .timeline:has(.time-item:nth-child(5)) .time-item p {
+      font-size: 24px;
+      line-height: 1.32;
+    }
+
+    .compare {
+      margin-top: 54px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 34px;
+      max-width: 1360px;
+    }
+
+    .compare-panel {
+      border: 2px solid var(--line);
+      padding: 42px;
+      min-height: 470px;
+      background: rgba(255, 255, 255, .24);
+    }
+
+    .compare-panel h3 {
+      color: var(--accent);
+      margin-bottom: 24px;
+    }
+
+    .compare-panel p {
+      font-size: 31px;
+      line-height: 1.48;
+      color: var(--ink-muted);
+      margin-bottom: 20px;
+    }
+
+    .flow {
+      margin-top: 60px;
+      display: flex;
+      align-items: stretch;
+      gap: 22px;
+      max-width: 1450px;
+    }
+
+    .flow-step {
+      flex: 1;
+      border: 2px solid var(--line);
+      background: rgba(255, 255, 255, .25);
+      padding: 30px 24px;
+      min-height: 210px;
+      position: relative;
+    }
+
+    .flow-step:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      right: -22px;
+      top: 50%;
+      width: 22px;
+      height: 3px;
+      background: var(--accent);
+    }
+
+    .flow-step h3 {
+      font-size: 32px;
+      color: var(--accent);
+    }
+
+    .flow-step p {
+      margin-top: 18px;
+      font-size: 27px;
+      line-height: 1.38;
+      color: var(--ink-muted);
+    }
+
+    .matrix {
+      margin-top: 52px;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 18px;
+      max-width: 1450px;
+    }
+
+    .matrix .cell {
+      border: 2px solid var(--line);
+      min-height: 170px;
+      padding: 24px;
+      background: rgba(255, 255, 255, .25);
+    }
+
+    .matrix .cell h3 {
+      font-size: 30px;
+      color: var(--accent);
+    }
+
+    .matrix .cell p {
+      margin-top: 14px;
+      font-size: 25px;
+      line-height: 1.34;
+      color: var(--ink-muted);
+    }
+
+    .data-table {
+      width: 1450px;
+      margin-top: 34px;
+      border-collapse: collapse;
+      background: rgba(255, 255, 255, .24);
+      border: 2px solid var(--line);
+      table-layout: fixed;
+    }
+
+    .data-table th,
+    .data-table td {
+      border: 1px solid rgba(22, 19, 16, .14);
+      padding: 12px 13px;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    .data-table th {
+      font-size: 21px;
+      line-height: 1.2;
+      color: var(--accent);
+      font-weight: 800;
+      background: rgba(141, 43, 47, .07);
+    }
+
+    .data-table td {
+      font-size: 20px;
+      line-height: 1.28;
+      color: var(--ink-muted);
+    }
+
+    .data-table td:first-child {
+      color: var(--accent);
+      font-weight: 800;
+      width: 150px;
+    }
+
+    .data-table.vram-table {
+      margin-top: 24px;
+      width: 1450px;
+    }
+
+    .data-table.vram-table th {
+      font-size: 16px;
+      padding: 7px 8px;
+    }
+
+    .data-table.vram-table td {
+      font-size: 15px;
+      line-height: 1.18;
+      padding: 6px 8px;
+    }
+
+    .link-list {
+      margin-top: 38px;
+      max-width: 1280px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px 28px;
+    }
+
+    .link-item {
+      border: 2px solid var(--line);
+      background: rgba(255, 255, 255, .24);
+      padding: 18px 22px;
+      min-height: 98px;
+    }
+
+    .link-item strong {
+      display: block;
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+
+    .link-item a {
+      color: var(--ink-muted);
+      font-size: 19px;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+      text-decoration-color: rgba(141, 43, 47, .45);
+    }
+
+    .radar {
+      margin-top: 54px;
+      width: 1140px;
+      height: 440px;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 28px;
+      align-items: end;
+    }
+
+    .bar {
+      border-left: 2px solid var(--line);
+      border-right: 2px solid var(--line);
+      border-top: 8px solid var(--accent);
+      background: linear-gradient(180deg, rgba(141, 43, 47, .18), rgba(255, 255, 255, .15));
+      min-height: var(--bar-height);
+      padding: 24px;
+      display: flex;
+      align-items: end;
+      justify-content: center;
+      text-align: center;
+      font-size: 28px;
+      line-height: 1.25;
+      color: var(--ink);
+    }
+
+    .code-block {
+      margin-top: 52px;
+      max-width: 1180px;
+      background: #221f1c;
+      color: #f5eadc;
+      padding: 38px 44px;
+      font-size: 29px;
+      line-height: 1.5;
+      font-family: "Source Serif 4", "Noto Serif SC", serif;
+      border-left: 10px solid var(--accent);
+      white-space: pre-line;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+      margin-top: 52px;
+      max-width: 1260px;
+    }
+
+    .chip {
+      border: 2px solid rgba(141, 43, 47, .34);
+      padding: 18px 28px;
+      border-radius: 999px;
+      font-size: 28px;
+      color: var(--accent);
+      background: rgba(255, 255, 255, .24);
+    }
+
+    .workbench {
+      margin-top: 54px;
+      display: grid;
+      grid-template-columns: 380px 380px 380px;
+      gap: 30px;
+      max-width: 1220px;
+    }
+
+    .workbench .card {
+      min-height: 255px;
+    }
+
+    .media-frame {
+      margin-top: 42px;
+      max-width: 1180px;
+      height: 500px;
+      border: 2px solid var(--line);
+      background: rgba(255, 255, 255, .30);
+      padding: 18px;
+      display: grid;
+      place-items: center;
+      box-shadow: 0 22px 56px rgba(40, 30, 20, .12);
+    }
+
+    .media-frame.wide {
+      max-width: 1380px;
+      height: 560px;
+    }
+
+    .media-frame.agent-flow-shot {
+      max-width: 1180px;
+      height: 410px;
+      margin-top: 32px;
+    }
+
+    .media-frame.tall {
+      max-width: 820px;
+      height: 560px;
+    }
+
+    .media-frame img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    .image-grid {
+      margin-top: 42px;
+      max-width: 1450px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0;
+    }
+
+    .image-grid .media-frame {
+      margin-top: 0;
+      height: 430px;
+      max-width: none;
+      padding: 8px;
+      box-shadow: none;
+    }
+
+    .image-pair {
+      margin-top: 42px;
+      max-width: 1370px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 26px;
+      align-items: center;
+    }
+
+    .image-pair .media-frame {
+      margin-top: 0;
+      height: 430px;
+      max-width: none;
+    }
+
+    .image-carousel {
+      margin-top: 40px;
+      max-width: 1390px;
+      height: 570px;
+      position: relative;
+      border: 2px solid var(--line);
+      background: rgba(255, 255, 255, .30);
+      padding: 18px;
+      overflow: hidden;
+      box-shadow: 0 22px 56px rgba(40, 30, 20, .12);
+    }
+
+    .image-carousel img {
+      position: absolute;
+      inset: 18px;
+      width: calc(100% - 36px);
+      height: calc(100% - 36px);
+      object-fit: contain;
+      opacity: 0;
+      animation: imageCycle 20s infinite;
+    }
+
+    .image-carousel img:nth-child(1) { animation-delay: 0s; }
+    .image-carousel img:nth-child(2) { animation-delay: 2s; }
+    .image-carousel img:nth-child(3) { animation-delay: 4s; }
+    .image-carousel img:nth-child(4) { animation-delay: 6s; }
+    .image-carousel img:nth-child(5) { animation-delay: 8s; }
+    .image-carousel img:nth-child(6) { animation-delay: 10s; }
+    .image-carousel img:nth-child(7) { animation-delay: 12s; }
+    .image-carousel img:nth-child(8) { animation-delay: 14s; }
+    .image-carousel img:nth-child(9) { animation-delay: 16s; }
+    .image-carousel img:nth-child(10) { animation-delay: 18s; }
+
+    @keyframes imageCycle {
+      0%, 8% { opacity: 1; }
+      12%, 100% { opacity: 0; }
+    }
+
+    .model-gallery {
+      margin-top: 34px;
+      max-width: 1450px;
+      height: 680px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 28px;
+      cursor: pointer;
+    }
+
+    .model-gallery .media-frame {
+      margin-top: 0;
+      max-width: none;
+      height: 680px;
+      padding: 12px;
+    }
+
+    .model-gallery-hint {
+      position: absolute;
+      right: 175px;
+      bottom: 112px;
+      font-size: 22px;
+      color: var(--ink-faint);
+      letter-spacing: .08em;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .image-carousel img:first-child {
+        opacity: 1;
+      }
+    }
+
+    .chapter-slide {
+      background:
+        radial-gradient(circle at 80% 20%, rgba(141, 43, 47, .12), transparent 30%),
+        linear-gradient(90deg, rgba(22, 19, 16, .045) 0 1px, transparent 1px),
+        var(--paper);
+      background-size: auto, 44px 44px, auto;
+    }
+
+    .chapter-slide h2 {
+      font-size: 104px;
+      max-width: 1180px;
+    }
+
+    .chapter-index {
+      position: absolute;
+      right: 160px;
+      bottom: 120px;
+      font-size: 180px;
+      font-family: "Cormorant Garamond", serif;
+      color: rgba(141, 43, 47, .18);
+      line-height: 1;
+    }
+
+    /* ===========================================
+       TITLE SLIDE DETAILS
+       标题页沿用已选择的第一种纸本文献感方向。
+       =========================================== */
+    .title-slide .side-note {
+      position: absolute;
+      right: 108px;
+      top: 156px;
+      writing-mode: vertical-rl;
+      font-size: 26px;
+      line-height: 1.8;
+      color: var(--accent);
+      letter-spacing: .12em;
+    }
+
+    .title-slide .stamp {
+      position: absolute;
+      right: 180px;
+      bottom: 138px;
+      width: 156px;
+      height: 156px;
+      border: 6px double var(--accent);
+      display: grid;
+      place-items: center;
+      color: var(--accent);
+      font-size: 32px;
+      font-weight: 700;
+      transform: rotate(-8deg);
+      opacity: .88;
+    }
+
+    /* ===========================================
+       REVEAL ANIMATIONS
+       当前页出现时做轻微上移淡入，适合讲课节奏。
+       =========================================== */
+    .reveal {
+      opacity: 0;
+      transform: translateY(34px);
+      transition:
+        opacity var(--duration-normal) var(--ease-out-expo),
+        transform var(--duration-normal) var(--ease-out-expo);
+    }
+
+    .visible .reveal {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .reveal:nth-child(1) { transition-delay: .08s; }
+    .reveal:nth-child(2) { transition-delay: .16s; }
+    .reveal:nth-child(3) { transition-delay: .24s; }
+    .reveal:nth-child(4) { transition-delay: .32s; }
+    .reveal:nth-child(5) { transition-delay: .40s; }
+
+    /* ===========================================
+       PRESENTATION CONTROLS
+       控制条放在舞台之外，不影响 1920×1080 页面布局。
+       =========================================== */
+    .deck-controls {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: rgba(20, 19, 18, .78);
+      color: #f7f1e5;
+      padding: 10px 16px;
+      border: 1px solid rgba(247, 241, 229, .18);
+      border-radius: 999px;
+      backdrop-filter: blur(8px);
+      font-size: 14px;
+    }
+
+    .deck-controls button {
+      border: 0;
+      color: #f7f1e5;
+      background: transparent;
+      cursor: pointer;
+      padding: 4px 8px;
+    }
+
+    .progress-track {
+      width: 160px;
+      height: 4px;
+      background: rgba(247, 241, 229, .22);
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      width: 0;
+      background: #f7f1e5;
+      transition: width .25s ease;
+    }
+
+    /* ===========================================
+       INLINE EDITING CONTROLS
+       E 键或左上角热区可进入编辑模式，修改保存在 localStorage。
+       =========================================== */
+    .edit-hotzone {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 82px;
+      height: 82px;
+      z-index: 10000;
+    }
+
+    .edit-toggle {
+      position: fixed;
+      top: 18px;
+      left: 18px;
+      z-index: 10001;
+      opacity: 0;
+      pointer-events: none;
+      border: 1px solid rgba(247, 241, 229, .28);
+      background: rgba(20, 19, 18, .82);
+      color: #f7f1e5;
+      padding: 10px 14px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: opacity .25s ease;
+    }
+
+    .edit-toggle.show,
+    .edit-toggle.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .editing [data-editable="true"] {
+      outline: 2px dashed rgba(141, 43, 47, .62);
+      outline-offset: 6px;
+      cursor: text;
+    }
+  </style>
+</head>
+<body>
+  <div class="deck-viewport" aria-label="AI智能体实战课件">
+    <main class="deck-stage" id="deckStage"></main>
+  </div>
+
+  <nav class="deck-controls" aria-label="演示控制">
+    <button id="prevBtn" type="button" aria-label="上一页">Prev</button>
+    <span id="pageLabel">1 / 46</span>
+    <div class="progress-track" aria-hidden="true"><div class="progress-bar" id="progressBar"></div></div>
+    <button id="nextBtn" type="button" aria-label="下一页">Next</button>
+  </nav>
+
+  <div class="edit-hotzone" aria-hidden="true"></div>
+  <button class="edit-toggle" id="editToggle" type="button" title="Edit mode (E)">Edit</button>
+
+  <script>
+    /* ===========================================
+       SLIDE CONTENT DATA
+       每个对象对应一页，layout 决定页面结构，content 保持低密度演讲型。
+       =========================================== */
+    const slides = [
+      { section: "2026 / 07", type: "title", title: "AI智能体实战：文科生如何用AI辅助研究", kicker: "两小时上手课", subtitle: "从对话模型走向能规划、能调用工具、能沉淀方法的研究助手。", note: "资料 · 文献 · 笔记 · 工作流" },
+      { section: "开场", title: "文科研究者真正卡住的地方", lead: "不是不会提问，而是资料、工具和流程无法连续起来。", bullets: ["资料搜集分散，线索容易断", "文献、笔记、OCR、表格各在不同工具里", "重复任务太多，经验没有沉淀成流程"] },
+      { section: "路线图", title: "两小时走完一条上手路径", lead: "先建立概念，再安装调用，最后落到研究工作流。", flow: [["概念", "Agent、MCP、skill"], ["环境", "Git、Python、Node、客户端"], ["Codex", "配置、插件、MCP、skill"], ["案例", "OCR、Zotero、Obsidian"], ["沉淀", "把重复事项固定下来"]] },
+      { section: "背景", title: "从 Transformer 到 Agent", lead: "大模型的关键变化，是从“能对话”走向“能行动”。", timeline: [["2017", "Transformer：Attention is all you need，建立现代大模型基础"], ["2022", "ChatGPT：对话模型爆火出圈"], ["2023", "GPT-4、Claude、Sora：推理、代码、多模态继续提升"], ["2024", "GPT-o1：reasoning 与思维链进入主流视野"], ["2024", "Function Calling / Tools / RAG：模型连接外部工具、知识库和业务系统"], ["2025.02", "DeepSeek-R1：成本高效的推理模型"], ["2025", "AI Agent 元年：LangGraph、多智能体、MCP、A2A、skills、vibe coding"], ["2026", "通用 AI Agent 基本成熟：百万上下文模型、OpenClaw 等形态出现"]] },
+      { section: "定义", title: "什么是 AI Agent", lead: "一种能够感知环境、制定计划、调用工具并执行行动的 AI 系统。", cards: [["推理", "拆解复杂任务，分析因果和步骤"], ["规划", "制定多步行动路线并动态调整"], ["记忆", "利用当前上下文和长期经验"], ["工具使用", "调用搜索、API、文件系统和代码执行"]] },
+      { section: "流程", title: "Agent 如何完成任务", lead: "它不是一次回答，而是一轮轮计划、行动、观察和修正。", image: { src: "ai-agent-humanities-research-assets/agent-flow.png", alt: "Agent 工作流程图", variant: "agent-flow-shot" } },
+      { section: "对照", title: "Chatbot 与 Agent 的差别", compare: [["传统 Chatbot", ["被动一问一答", "主要依赖模型内部知识", "适合简单问答和解释"]], ["AI Agent", ["主动规划和执行", "连接工具、文件和外部系统", "适合多步任务和长期项目"]]] },
+      { section: "生态", title: "AI 产品不是同一层东西", lead: "把模型、服务商、窗口产品、知识库和 Agent 分开看，选择会清楚很多。", matrix: [["基座模型", "GPT、DeepSeek、Claude、GLM 等"], ["服务商", "原生厂商、聚合平台、中转平台"], ["对话窗口", "豆包、元宝、千问、ChatGPT"], ["知识库", "乐享、语雀、Obsidian 等"], ["智能体", "Trae、Workbuddy、Codex、Claude Code"]] },
+      { section: "概念", title: "Token 有两个常见含义", lead: "一个是模型计算单位，一个是访问服务的钥匙。", compare: [["词元 token", ["模型把输入切成 token 序列", "上下文越长，消耗越多", "影响成本和速度"]], ["API token", ["也常叫 API Key 或令牌", "相当于访问服务的密码", "不能提交到仓库或公开粘贴"]]] },
+      { section: "方法论", title: "从提示词工程到驾驭工程", lead: "越复杂的任务，越不能只靠一句提示词。", image: { src: "ai-agent-humanities-research-assets/harness.jpg", alt: "Harness 方法论配图", variant: "wide" } },
+      { section: "Harness", title: "不同 Agent Harness 的取舍", lead: "不是纠结谁最好，而是理解它们的设计范式。", matrix: [["OpenClaw", "通用网关运行时，连接多渠道和多 Agent"], ["Hermes", "自进化研究框架，强调长期记忆"], ["OpenCode", "轻量开源编码 CLI"], ["Codex", "项目型 AI 终端，边界明确"], ["Claude Code", "本地文件集成强，生态丰富"]], table: { headers: ["框架", "核心范式", "层级定位", "主动/被动", "开放度", "核心取舍"], rows: [["OpenClaw", "通用网关运行时", "上层承载底座", "主动常驻", "MIT 开源，模型无关", "通用性、多渠道、本地隐私、可托管其他编码 Agent"], ["Hermes", "自进化研究框架", "完整通用 Agent", "主动常驻", "MIT 开源，无锁定", "长期记忆、自迭代、轻量化自托管，编码为插件"], ["OpenCode", "纯编码 CLI 执行器", "编码子组件", "被动单次会话", "开源多模型", "极简、只处理代码，作为上层框架的底层执行单元"], ["Codex", "云端模型一体化", "厂商内置编码工具", "被动单次会话", "闭源 OpenAI 绑定", "调用便捷、云端沙箱，自定义管控能力弱"], ["Claude Code", "终端专业编码 Agent", "垂直专用产品", "被动单次会话", "闭源 Anthropic 绑定", "本地文件深度集成、强安全审批、大型工程推理"]] } },
+      { section: "MCP", title: "MCP 是工具接入的通用协议", lead: "过去每个厂商自己做工具，现在可以通过协议把工具接给模型。", flow: [["Host", "模型主体"], ["Client", "发起连接和调用"], ["Server", "提供工具和资源"], ["Tools", "搜索、抓取、数据库、Zotero"]] },
+      { section: "Skill", title: "Skill 是把流程固化下来", lead: "一套固定流程、约束、脚本和案例，可以被 Agent 反复调用。", bullets: ["适合高频、规则清晰、需要验证的任务", "可以包含 prompt、脚本、模板、示例输出", "太宽泛或重复的 skill 会浪费上下文"] },
+      { section: "安装", type: "chapter", title: "从零开始：安装、调用", lead: "把基础环境准备好，后面的 Agent 才能稳定工作。", index: "02" },
+      { section: "Git", title: "GitHub 与 Git：先学会留痕", lead: "Agent 会改文件，版本控制就是回滚和审查的底线。", code: "git init          初始化仓库\ngit status        查看文件状态\ngit add .         跟踪修改\ngit commit        保存一个版本\ngit branch        创建分支\ngit switch        切换分支\ngit push          上传到云端\ngit restore       恢复文件内容" },
+      { section: "环境", title: "四类基础工具各管一件事", lead: "Node.js、Python、Anaconda、VSCode 分别解决运行、脚本、隔离和编辑问题。", image: { src: "ai-agent-humanities-research-assets/anaconda.png", alt: "Anaconda 安装与环境示例", variant: "wide" } },
+      { section: "Trae", title: "Trae：中文友好的 Agent IDE", lead: "适合新手进入对话式开发和文件任务。", bullets: ["任务、项目、阅读、编辑、终端、预览、联网搜索", "Solo 模式适合沉浸式任务，IDE 模式适合开发", "问题在于状态维护和验证流程仍需加强"] },
+      { section: "Workbuddy", title: "Workbuddy / OpenClaw：通用 Agent 工作台", lead: "它把助理、任务、项目、专家、自动化和知识库放在同一个入口。", bullets: ["适合多应用会话管理和国产模型生态", "可以接入 skill、MCP、知识库和自动化任务", "必须警惕权限边界和危险操作"] },
+      { section: "能力", title: "Agent 能力差距来自两件事", compare: [["模型自身能力", ["推理、代码、多模态、长上下文", "旗舰模型和本地小模型差距明显"]], ["Agent 系统设计", ["如何建上下文、路由工具、保存记忆", "如何验证、修复和控制边界"]]] },
+      { section: "模型", title: "模型能力图", modelGallery: [{ src: "ai-agent-humanities-research-assets/model-01.png", alt: "模型能力图 1" }, { src: "ai-agent-humanities-research-assets/model-02.png", alt: "模型能力图 2" }, { src: "ai-agent-humanities-research-assets/model-03.png", alt: "模型能力图 3" }, { src: "ai-agent-humanities-research-assets/model-04.png", alt: "模型能力图 4" }, { src: "ai-agent-humanities-research-assets/model-05.png", alt: "模型能力图 5" }, { src: "ai-agent-humanities-research-assets/model-06.png", alt: "模型能力图 6" }, { src: "ai-agent-humanities-research-assets/model-07.png", alt: "模型能力图 7" }, { src: "ai-agent-humanities-research-assets/model-08.png", alt: "模型能力图 8" }, { src: "ai-agent-humanities-research-assets/model-09.png", alt: "模型能力图 9" }, { src: "ai-agent-humanities-research-assets/model-10.png", alt: "模型能力图 10" }] },
+      { section: "系统", title: "好的 Agent 系统在管什么", lead: "它管的不是模型聪不聪明，而是任务如何稳定完成。", chips: ["意图分析", "Goal", "Plan", "Context Builder", "Tool Routing", "Memory", "Session", "Self-Evaluation", "Boundaries", "Verification"] },
+      { section: "推荐", title: "个人用户先买一套可用组合", lead: "主力工具要稳定，补充工具要便宜和灵活。", bullets: ["Codex Plus 作为项目型任务主力", "国产 coding plan 作为模型和生态补充", "先上手一个工具，不要同时追逐所有平台"] },
+      { section: "本地部署", title: "为什么不建议个人主力本地部署", lead: "真正的成本不只是显卡，而是能力差距、功耗和运维。", cardLayout: "row4", cards: [["参数量", "参数越大能力越强，也越吃显存"], ["精度/量化", "INT4 省显存，但会损失质量"], ["KV Cache", "上下文越长，推理开销越大"], ["现实判断", "涉密或离线才值得优先考虑本地"]], table: { variant: "vram-table", headers: ["模型参数量", "精度", "模型权重", "KV Cache", "总需显存", "消费级显卡方案"], rows: [["7B", "INT4", "~3.5 GB", "~0.8 GB", "≈4.5 GB", "RTX 3060 12G / RTX 4060 8G"], ["7B", "INT8", "~7 GB", "~1.2 GB", "≈8 GB", "RTX 4060 8G 勉强 / RTX 4070 12G"], ["7B", "FP16", "~14 GB", "~1.5 GB", "≈16 GB", "RTX 4080 16G / RTX 5070"], ["13B~14B", "INT4", "~7 GB", "~1.5 GB", "≈8.5 GB", "RTX 4070 12G"], ["13B~14B", "INT8", "~14 GB", "~2 GB", "≈16 GB", "RTX 4080 16G"], ["13B~14B", "FP16", "~28 GB", "~3 GB", "≈31 GB", "RTX 5090 32G 勉强 / 需多卡"], ["32B", "INT4", "~16 GB", "~3 GB", "≈19 GB", "RTX 4090 24G / RTX 5090 32G"], ["32B", "INT8", "~32 GB", "~4 GB", "≈36 GB", "需 A6000 48G 或双 4090"], ["32B", "FP16", "~64 GB", "~5 GB", "≈70 GB", "需 A100 80G 或 4× RTX 4090"], ["70B~72B", "INT4", "~36 GB", "~6 GB", "≈42 GB", "需 A6000 48G / 双 RTX 4090"], ["70B~72B", "INT8", "~72 GB", "~8 GB", "≈80 GB", "需 A100 80G"], ["70B~72B", "FP16", "~144 GB", "~10 GB", "≈155 GB", "需 2× H100 / 多卡集群"], ["405B", "INT4", "~203 GB", "~20 GB", "≈225 GB", "需 3× H100 80G"], ["671B MoE", "INT4", "~336 GB", "~25 GB", "≈360 GB", "需 5× H100 80G / 8× A100 80G"]] } },
+      { section: "安全", title: "云端 API 的第一课是安全", lead: "API Key、访问令牌和上下文资料，都要按敏感信息处理。", bullets: ["API Key 像密码一样保存，不进截图、不进仓库", "撞缓存：请求内容、系统提示或上下文高度相似时，服务端可能复用缓存命中路径；好处是更快更便宜，但要警惕上下文、权限和计费边界", "注意撞缓存和上下文泄露风险", "把敏感资料、权限和执行环境分开管理"] },
+      { section: "API", title: "API / SDK 是模型进入工具的门", compare: [["API", ["按请求和响应调用模型", "更底层，也更通用"]], ["SDK", ["把鉴权、请求、流式输出封装好", "写脚本和自动化时更省事"]]] },
+      { section: "服务", title: "模型服务入口怎么选", lead: "优先看稳定性、价格、模型类型、是否适合 Agent。", links: [{ label: "硅基流动", url: "https://account.siliconflow.cn/zh/login?redirect=https%3A%2F%2Fcloud.siliconflow.cn%2Fme%2Fmodels%3F" }, { label: "火山方舟 Agent Plan", url: "https://console.volcengine.com/ark/region:cn-beijing/subscription/agent-plan" }, { label: "智谱 AI 开放平台", url: "https://open.bigmodel.cn/glm-coding" }, { label: "阿里云百炼 Token Plan", url: "https://www.aliyun.com/benefit/scene/tokenplan?spm=5176.30260724.0.0.15c732a5x3zSkr" }, { label: "腾讯云大模型 Token Plan", url: "https://cloud.tencent.com/act/pro/tokenplan" }] },
+      { section: "Codex", type: "chapter", title: "Codex：项目型 Agent 工作流", lead: "接下来把概念落到一个边界明确的工作区里。", index: "03" },
+      { section: "账号", title: "Codex 注册与订阅", lead: "常见路径是 ChatGPT 登录，也可以通过 API Key 使用。", bullets: ["梯子", "手机下载 ChatGPT（Google Play 或 Apple 商店）", "登录 ChatGPT", "Visa 信用卡（国内国外均可），绑定 Google Play 或 Apple", "非华为安卓手机：Google Play 商店，注意修改地区，不要是中国", "苹果手机：Apple Pay", "Plus：20 美元；Pro：100 美元；Pro*20：400 美元", "API Key 登录适合按量计费和自动化环境", "凭证文件要像密码一样保护"] },
+      { section: "插件", title: "Codex 插件是能力包", lead: "插件可能带来 skills、MCP、apps 和配套说明。", bullets: ["先看插件提供了什么能力，不要盲装", "能力越多，上下文和权限边界越要管住", "用完要能解释它改变了哪些工作流", "computer use", "chrome：必须是美、日节点才可以下载安装", "办公软件", "zotero", "github"] },
+      { section: "MCP 选择", title: "MCP 服务要少而准", lead: "不是接得越多越强，接太多会增加 token 消耗和路由干扰。", matrix: [["Brave Search", "联网搜索"], ["Context7", "实时技术文档"], ["Fetch", "抓取网页内容"], ["GitHub", "仓库和 PR 管理"], ["Node REPL", "JavaScript 代码执行"], ["Zotero", "文献管理集成"]] },
+      { section: "Skill 使用", title: "推荐先用成熟 skill", lead: "从真实任务出发，优先选择能减少重复劳动的技能。", chips: ["superpower", "ui-ux-pro-max", "find skills", "skill creator", "frontend-slides", "ppt-master", "学术论文检索", "cnki-watch", "cnki-skills"] },
+      { section: "Skill 开发", title: "什么时候写自己的 skill", lead: "当一件事反复做、规则清楚、还需要验证，就该固化。", bullets: ["把任务边界写清楚", "把输入、输出和失败处理写清楚", "把脚本、模板、案例和验收命令放进去", "案例：我自己开发的 skill，可以拆分 PDF 并且导入到 Zotero"] },
+      { section: "AGENTS", title: "AGENTS.md：项目里的工作约定", lead: "它是给 Agent 看的项目规则，决定它能做什么、怎么做、怎么验收。", code: "工作约定：先读项目说明和 handoff\n内容边界：不要擅自改正文主要内容\n终端规则：Windows 下使用 pwsh.exe\n验证规则：完成后说明修改、命令、风险" },
+      { section: "配置", title: "config.toml：Codex 的主配置", lead: "不要逐行背配置，先知道每类配置管什么。", chips: ["模型与推理", "审批与安全", "会话历史", "MCP 服务器", "自定义供应商", "环境变量", "网络与沙箱", "TUI", "项目信任", "记忆系统"] },
+      { section: "状态", title: "auth.json 与 Session", lead: "一个管身份凭证，一个管会话连续性。", compare: [["auth.json", ["存储访问令牌", "不要提交、粘贴或截图", "登出后其他端也可能受影响"]], ["Session", ["保存对话记录和任务状态", "可以 resume 恢复", "适合长期项目连续推进"]]] },
+      { section: "cc-switch", title: "cc-switch：统一管理多模型生态", lead: "当供应商、模型、skill、MCP 变多时，需要一个管理入口。", imageGrid: [{ src: "ai-agent-humanities-research-assets/cc-switch-01.png", alt: "cc-switch 基础配置" }, { src: "ai-agent-humanities-research-assets/cc-switch-02.png", alt: "cc-switch 供应商配置" }, { src: "ai-agent-humanities-research-assets/cc-switch-03.png", alt: "cc-switch 模型配置" }] },
+      { section: "Vibe Coding", title: "Vibe Coding：用自然语言做工具", lead: "核心不是放弃理解代码，而是把意图快速变成可验证原型。", bullets: ["用自然语言描述想要的工具", "让 Agent 生成、运行、测试、再迭代", "从小工具和个人项目开始，必须保留审查"] },
+      { section: "开发案例", title: "还可以帮助修电脑", lead: "从低风险、可验证、能省时间的任务开始。", image: { src: "ai-agent-humanities-research-assets/computer-management.png", alt: "用 Agent 管理电脑的示例截图", variant: "wide" } },
+      { section: "研究 skill", title: "案例：撰写古文字提要 skill", lead: "把研究规则、抽取流程、校验脚本和输出格式打包，让 Agent 可重复执行。", image: { src: "ai-agent-humanities-research-assets/skill-dev.png", alt: "skill 开发计划模式截图", variant: "wide" } },
+      { section: "OCR API", title: "接入模型和调用 API", lead: "OCR、图像理解和批处理，本质上都是把外部能力接进流程。", image: { src: "ai-agent-humanities-research-assets/model-api.png", alt: "模型服务和 API 调用截图", variant: "wide" } },
+      { section: "OCR", title: "古籍 OCR / 文献 OCR 工作流", lead: "单本古籍先做通路，大量 PDF 再做 skill 和自动化。", links: [{ label: "MinerU", url: "https://mineru.net/" }, { label: "火山方舟 Agent Plan", url: "https://console.volcengine.com/ark/region:cn-beijing/subscription/agent-plan" }, { label: "模型广场 TokenHub", url: "https://console.cloud.tencent.com/tokenhub/models/detail?modelId=hy-vision-2.0-instruct&regionId=1&from=featured" }, { label: "腾讯混元", url: "https://aistudio.tencent.com/visual" }] },
+      { section: "Zotero", title: "Zotero 是文献工作流的入口", lead: "它不只是文献管理软件，也是 Agent 理解你研究兴趣的资料库。", chips: ["Zotero 插件市场", "Awesome GPT", "Ethereal Style", "Jasminum", "Translate for Zotero", "Zotero MCP Plugin", "Zotero Pdf2zh"] },
+      { section: "文献跟进", title: "自动跟进文献：从 RSS 到兴趣画像", lead: "让 Agent 读懂你的文献库，再筛选新文章。", flow: [["读取文献库", "提取主题和关键词"], ["建立画像", "总结兴趣方向"], ["接入 RSS", "期刊、数据库和主题源"], ["筛选推送", "只把相关内容送到你面前"]] },
+      { section: "检索下载", title: "自动检索与下载", lead: "CNKI skills、cnki-watch、cnki-download 和扩展检索，可以组成半自动文献流水线。", image: { src: "ai-agent-humanities-research-assets/zotero-cnki.png", alt: "Zotero 与 CNKI 技能联动截图", variant: "wide" } },
+      { section: "Obsidian", title: "Obsidian：本地第二大脑", lead: "它适合 Agent 的原因很简单：本地 Markdown 文件就是完美上下文。", cards: [["本地优先", "数据在你自己的文件夹里"], ["双向链接", "通过链接形成知识网络"], ["关系图谱", "看见主题之间的关联"], ["Markdown 原生", "任何编辑器都能读取和维护"]] },
+      { section: "知识库", title: "AI 自动整理 Obsidian 笔记", lead: "目标不是让 AI 写总结，而是建立一个长期可扩展的研究系统。", image: { src: "ai-agent-humanities-research-assets/obsidian-ai.png", alt: "AI 自动整理 Obsidian 笔记截图", variant: "wide" }, caption: "同时保留 Topic Hub、标签系统和内部链接，不只依赖文件夹分类。" },
+      { section: "总结", title: "最后只记住三件事", lead: "AI 是工具，真正重要的是你如何组织任务和验证结果。", bullets: ["上下文问题：把资料、边界和目标讲清楚", "多接触多用：先从小任务建立手感", "把重复事项固定下来：AGENTS、handoff、skill、脚本和模板"], quote: "新时代需要掌握的能力：架构思维和创造力。" }
+    ];
+
+    /* ===========================================
+       SLIDE HTML RENDERERS
+       根据不同 layout 生成固定舞台内的 HTML 结构。
+       =========================================== */
+    const deckStage = document.getElementById("deckStage");
+
+    function esc(value) {
+      return String(value ?? "").replace(/[&<>"']/g, (ch) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      }[ch]));
+    }
+
+    function editable(text, tag = "p", className = "") {
+      return `<${tag} class="${className} reveal" data-editable="true">${esc(text)}</${tag}>`;
+    }
+
+    function renderCards(items, layout = "") {
+      const layoutClass = layout || (items.length === 3 ? "three" : "");
+      return `<div class="cols ${esc(layoutClass)}">${items.map(([title, body]) => `
+        <article class="card reveal">
+          <h3 data-editable="true">${esc(title)}</h3>
+          <p data-editable="true">${esc(body)}</p>
+        </article>`).join("")}</div>`;
+    }
+
+    function renderBullets(items, small = false) {
+      return `<ul class="bullets ${small ? "small-list" : ""}">${items.map(item => `
+        <li class="reveal" data-editable="true">${esc(item)}</li>`).join("")}</ul>`;
+    }
+
+    function renderTimeline(items) {
+      return `<div class="timeline">${items.map(([year, body]) => `
+        <article class="time-item reveal">
+          <div class="year" data-editable="true">${esc(year)}</div>
+          <p data-editable="true">${esc(body)}</p>
+        </article>`).join("")}</div>`;
+    }
+
+    function renderCompare(items) {
+      return `<div class="compare">${items.map(([title, points]) => `
+        <article class="compare-panel reveal">
+          <h3 data-editable="true">${esc(title)}</h3>
+          ${points.map(point => `<p data-editable="true">${esc(point)}</p>`).join("")}
+        </article>`).join("")}</div>`;
+    }
+
+    function renderFlow(items) {
+      return `<div class="flow">${items.map(([title, body]) => `
+        <article class="flow-step reveal">
+          <h3 data-editable="true">${esc(title)}</h3>
+          <p data-editable="true">${esc(body)}</p>
+        </article>`).join("")}</div>`;
+    }
+
+    function renderMatrix(items) {
+      return `<div class="matrix">${items.map(([title, body]) => `
+        <article class="cell reveal">
+          <h3 data-editable="true">${esc(title)}</h3>
+          <p data-editable="true">${esc(body)}</p>
+        </article>`).join("")}</div>`;
+    }
+
+    function renderChips(items) {
+      return `<div class="chips">${items.map(item => `
+        <span class="chip reveal" data-editable="true">${esc(item)}</span>`).join("")}</div>`;
+    }
+
+    function renderRadar(items) {
+      return `<div class="radar">${items.map(([label, height]) => `
+        <div class="bar reveal" style="--bar-height: ${esc(height)}" data-editable="true">${esc(label)}</div>`).join("")}</div>`;
+    }
+
+    function renderTable(table) {
+      return `<table class="data-table ${esc(table.variant || "")} reveal">
+        <thead><tr>${table.headers.map(header => `<th data-editable="true">${esc(header)}</th>`).join("")}</tr></thead>
+        <tbody>${table.rows.map(row => `<tr>${row.map(cell => `<td data-editable="true">${esc(cell)}</td>`).join("")}</tr>`).join("")}</tbody>
+      </table>`;
+    }
+
+    function renderLinks(items) {
+      return `<div class="link-list reveal">${items.map(item => `
+        <div class="link-item">
+          <strong data-editable="true">${esc(item.label)}</strong>
+          <a href="${esc(item.url)}" target="_blank" rel="noreferrer">${esc(item.url)}</a>
+        </div>`).join("")}</div>`;
+    }
+
+    function renderImage(image) {
+      return `<figure class="media-frame ${esc(image.variant || "")} reveal">
+        <img src="${esc(image.src)}" alt="${esc(image.alt || "")}">
+      </figure>`;
+    }
+
+    function renderImageGrid(images) {
+      return `<div class="image-grid reveal">${images.map(image => `
+        <figure class="media-frame ${esc(image.variant || "")}">
+          <img src="${esc(image.src)}" alt="${esc(image.alt || "")}">
+        </figure>`).join("")}</div>`;
+    }
+
+    function renderImagePair(images) {
+      return `<div class="image-pair reveal">${images.map(image => `
+        <figure class="media-frame ${esc(image.variant || "")}">
+          <img src="${esc(image.src)}" alt="${esc(image.alt || "")}">
+        </figure>`).join("")}</div>`;
+    }
+
+    function renderCarousel(images) {
+      return `<figure class="image-carousel reveal">${images.map(image => `
+        <img src="${esc(image.src)}" alt="${esc(image.alt || "")}">`).join("")}</figure>`;
+    }
+
+    function renderModelGallery(images) {
+      return `<div class="model-gallery reveal" data-model-gallery data-index="0">
+        <figure class="media-frame"><img src="${esc(images[0].src)}" alt="${esc(images[0].alt || "")}"></figure>
+        <figure class="media-frame"><img src="${esc(images[1].src)}" alt="${esc(images[1].alt || "")}"></figure>
+        <div class="model-gallery-hint">点击切换下一组</div>
+      </div>`;
+    }
+
+    function renderBody(slide) {
+      let body = "";
+      if (slide.lead) body += editable(slide.lead, "p", "lead");
+      if (slide.subtitle) body += editable(slide.subtitle, "p", "subtitle");
+      if (slide.bullets) body += renderBullets(slide.bullets, slide.bullets.length > 4);
+      if (slide.cards) body += renderCards(slide.cards, slide.cardLayout);
+      if (slide.timeline) body += renderTimeline(slide.timeline);
+      if (slide.compare) body += renderCompare(slide.compare);
+      if (slide.flow) body += renderFlow(slide.flow);
+      if (slide.matrix) body += renderMatrix(slide.matrix);
+      if (slide.chips) body += renderChips(slide.chips);
+      if (slide.radar) body += renderRadar(slide.radar);
+      if (slide.table) body += renderTable(slide.table);
+      if (slide.links) body += renderLinks(slide.links);
+      if (slide.code) body += `<pre class="code-block reveal" data-editable="true">${esc(slide.code)}</pre>`;
+      if (slide.image) body += renderImage(slide.image);
+      if (slide.imageGrid) body += renderImageGrid(slide.imageGrid);
+      if (slide.imagePair) body += renderImagePair(slide.imagePair);
+      if (slide.carousel) body += renderCarousel(slide.carousel);
+      if (slide.modelGallery) body += renderModelGallery(slide.modelGallery);
+      if (slide.quote) body += `<p class="big-quote reveal" data-editable="true">${esc(slide.quote)}</p>`;
+      if (slide.caption) body += `<p class="caption reveal" data-editable="true" style="margin-top: 28px;">${esc(slide.caption)}</p>`;
+      return body;
+    }
+
+    function renderSlide(slide, index) {
+      const page = String(index + 1).padStart(2, "0");
+      if (slide.type === "title") {
+        return `<section class="slide title-slide" data-slide="${index}">
+          <div class="section-mark">${esc(slide.section)}</div>
+          <div class="page-no">${page} / ${slides.length}</div>
+          <div class="side-note" data-editable="true">${esc(slide.note)}</div>
+          <main class="slide-inner">
+            ${editable(slide.kicker, "div", "kicker")}
+            ${editable(slide.title, "h1", "")}
+            ${editable(slide.subtitle, "p", "subtitle")}
+          </main>
+          <div class="stamp">AGENT</div>
+        </section>`;
+      }
+
+      if (slide.type === "chapter") {
+        return `<section class="slide chapter-slide" data-slide="${index}">
+          <div class="section-mark">${esc(slide.section)}</div>
+          <div class="page-no">${page} / ${slides.length}</div>
+          <main class="slide-inner">
+            ${editable(slide.title, "h2", "")}
+            ${editable(slide.lead, "p", "lead")}
+          </main>
+          <div class="chapter-index">${esc(slide.index)}</div>
+        </section>`;
+      }
+
+      return `<section class="slide" data-slide="${index}">
+        <div class="section-mark">${esc(slide.section)}</div>
+        <div class="page-no">${page} / ${slides.length}</div>
+        <main class="slide-inner">
+          ${editable(slide.title, "h2", "")}
+          ${renderBody(slide)}
+        </main>
+      </section>`;
+    }
+
+    deckStage.innerHTML = slides.map(renderSlide).join("");
+
+    /* ===========================================
+       MODEL GALLERY INTERACTION
+       模型能力图页采用两栏展示，点击图片区切换下一组。
+       =========================================== */
+    document.querySelectorAll("[data-model-gallery]").forEach((gallery) => {
+      const slideIndex = Number(gallery.closest(".slide").dataset.slide);
+      const images = slides[slideIndex].modelGallery || [];
+      const imgEls = Array.from(gallery.querySelectorAll("img"));
+      gallery.addEventListener("click", () => {
+        const current = Number(gallery.dataset.index || "0");
+        const next = (current + 2) % images.length;
+        gallery.dataset.index = String(next);
+        imgEls.forEach((img, i) => {
+          const item = images[(next + i) % images.length];
+          img.src = item.src;
+          img.alt = item.alt || "";
+        });
+      });
+    });
+
+    /* ===========================================
+       SLIDE PRESENTATION CONTROLLER
+       支持键盘、触摸和鼠标滚轮切页，并保持固定 16:9 缩放。
+       =========================================== */
+    class SlidePresentation {
+      constructor() {
+        this.slides = Array.from(document.querySelectorAll(".slide"));
+        this.currentSlide = 0;
+        this.stage = document.getElementById("deckStage");
+        this.pageLabel = document.getElementById("pageLabel");
+        this.progressBar = document.getElementById("progressBar");
+        this.lastWheelAt = 0;
+        this.setupStageScale();
+        this.setupKeyboardNav();
+        this.setupTouchNav();
+        this.setupWheelNav();
+        this.setupButtons();
+        this.showSlide(0);
+      }
+
+      setupStageScale() {
+        const scale = () => {
+          const factor = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+          const x = (window.innerWidth - 1920 * factor) / 2;
+          const y = (window.innerHeight - 1080 * factor) / 2;
+          this.stage.style.transform = `translate(${x}px, ${y}px) scale(${factor})`;
+        };
+        scale();
+        window.addEventListener("resize", scale);
+      }
+
+      setupKeyboardNav() {
+        document.addEventListener("keydown", (event) => {
+          if (event.target && event.target.getAttribute("contenteditable") === "true") return;
+          if (["ArrowRight", "PageDown", " "].includes(event.key)) {
+            event.preventDefault();
+            this.next();
+          }
+          if (["ArrowLeft", "PageUp"].includes(event.key)) {
+            event.preventDefault();
+            this.prev();
+          }
+          if (event.key === "Home") this.showSlide(0);
+          if (event.key === "End") this.showSlide(this.slides.length - 1);
+        });
+      }
+
+      setupTouchNav() {
+        let startX = 0;
+        let startY = 0;
+        document.addEventListener("touchstart", (event) => {
+          startX = event.changedTouches[0].clientX;
+          startY = event.changedTouches[0].clientY;
+        }, { passive: true });
+        document.addEventListener("touchend", (event) => {
+          const dx = event.changedTouches[0].clientX - startX;
+          const dy = event.changedTouches[0].clientY - startY;
+          if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+            dx < 0 ? this.next() : this.prev();
+          }
+        }, { passive: true });
+      }
+
+      setupWheelNav() {
+        document.addEventListener("wheel", (event) => {
+          const now = Date.now();
+          if (now - this.lastWheelAt < 650 || Math.abs(event.deltaY) < 40) return;
+          this.lastWheelAt = now;
+          event.deltaY > 0 ? this.next() : this.prev();
+        }, { passive: true });
+      }
+
+      setupButtons() {
+        document.getElementById("prevBtn").addEventListener("click", () => this.prev());
+        document.getElementById("nextBtn").addEventListener("click", () => this.next());
+      }
+
+      showSlide(index) {
+        this.currentSlide = Math.max(0, Math.min(index, this.slides.length - 1));
+        this.slides.forEach((slide, i) => {
+          slide.classList.toggle("active", i === this.currentSlide);
+          slide.classList.toggle("visible", i === this.currentSlide);
+        });
+        this.pageLabel.textContent = `${this.currentSlide + 1} / ${this.slides.length}`;
+        this.progressBar.style.width = `${((this.currentSlide + 1) / this.slides.length) * 100}%`;
+      }
+
+      next() {
+        this.showSlide(this.currentSlide + 1);
+      }
+
+      prev() {
+        this.showSlide(this.currentSlide - 1);
+      }
+    }
+
+    /* ===========================================
+       INLINE EDITOR
+       编辑模式会把可编辑文字保存到 localStorage，刷新后仍可保留。
+       =========================================== */
+    class InlineEditor {
+      constructor() {
+        this.isActive = false;
+        this.key = "ai-agent-humanities-research-edits";
+        this.editables = Array.from(document.querySelectorAll('[data-editable="true"]'));
+        this.load();
+        this.bindSave();
+      }
+
+      toggleEditMode() {
+        this.isActive = !this.isActive;
+        document.body.classList.toggle("editing", this.isActive);
+        document.getElementById("editToggle").classList.toggle("active", this.isActive);
+        this.editables.forEach((el) => {
+          el.setAttribute("contenteditable", this.isActive ? "true" : "false");
+        });
+        if (!this.isActive) this.save();
+      }
+
+      bindSave() {
+        this.editables.forEach((el) => {
+          el.addEventListener("input", () => this.save());
+        });
+      }
+
+      save() {
+        const values = this.editables.map((el) => el.innerHTML);
+        localStorage.setItem(this.key, JSON.stringify(values));
+      }
+
+      load() {
+        try {
+          const raw = localStorage.getItem(this.key);
+          if (!raw) return;
+          const values = JSON.parse(raw);
+          this.editables.forEach((el, i) => {
+            if (values[i]) el.innerHTML = values[i];
+          });
+        } catch {
+          localStorage.removeItem(this.key);
+        }
+      }
+    }
+
+    const presentation = new SlidePresentation();
+    const editor = new InlineEditor();
+
+    /* ===========================================
+       EDIT MODE ACCESS
+       左上角热区、Edit 按钮和 E 键都可以切换编辑模式。
+       =========================================== */
+    const hotzone = document.querySelector(".edit-hotzone");
+    const editToggle = document.getElementById("editToggle");
+    let hideTimeout = null;
+
+    hotzone.addEventListener("mouseenter", () => {
+      clearTimeout(hideTimeout);
+      editToggle.classList.add("show");
+    });
+
+    hotzone.addEventListener("mouseleave", () => {
+      hideTimeout = setTimeout(() => {
+        if (!editor.isActive) editToggle.classList.remove("show");
+      }, 400);
+    });
+
+    editToggle.addEventListener("mouseenter", () => clearTimeout(hideTimeout));
+    editToggle.addEventListener("mouseleave", () => {
+      hideTimeout = setTimeout(() => {
+        if (!editor.isActive) editToggle.classList.remove("show");
+      }, 400);
+    });
+
+    hotzone.addEventListener("click", () => editor.toggleEditMode());
+    editToggle.addEventListener("click", () => editor.toggleEditMode());
+
+    document.addEventListener("keydown", (event) => {
+      if ((event.key === "e" || event.key === "E") && event.target.getAttribute("contenteditable") !== "true") {
+        editor.toggleEditMode();
+      }
+    });
+  </script>
+</body>
+</html>
